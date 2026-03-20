@@ -1,4 +1,7 @@
 import os
+import struct
+import wave
+from io import BytesIO
 from pathlib import Path
 
 import httpx
@@ -63,6 +66,34 @@ def resolve_language(language: str | None, fallback_language: str | None) -> str
     return fallback or None
 
 
+def float32le_to_wav(content: bytes, sample_rate: int = 16000, channels: int = 1) -> bytes:
+    pcm16 = bytearray()
+    for (sample,) in struct.iter_unpack("<f", content):
+        clamped = max(-1.0, min(1.0, sample))
+        pcm16.extend(struct.pack("<h", int(clamped * 32767)))
+
+    buffer = BytesIO()
+    with wave.open(buffer, "wb") as wav_file:
+        wav_file.setnchannels(channels)
+        wav_file.setsampwidth(2)
+        wav_file.setframerate(sample_rate)
+        wav_file.writeframes(bytes(pcm16))
+    return buffer.getvalue()
+
+
+def normalize_audio_upload(
+    filename: str | None,
+    content_type: str | None,
+    content: bytes,
+) -> tuple[str, bytes, str]:
+    upload_filename = build_upload_filename(filename, content_type)
+    suffix = Path(upload_filename).suffix.lower()
+    if suffix == ".f32":
+        wav_filename = f"{Path(upload_filename).stem}.wav"
+        return wav_filename, float32le_to_wav(content), "audio/wav"
+    return upload_filename, content, content_type or "application/octet-stream"
+
+
 @app.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok"}
@@ -77,7 +108,11 @@ async def transcribe(
 ) -> JSONResponse:
     check_auth(authorization)
     content = await file.read()
-    upload_filename = build_upload_filename(file.filename, file.content_type)
+    upload_filename, upload_content, upload_content_type = normalize_audio_upload(
+        file.filename,
+        file.content_type,
+        content,
+    )
     request_language = resolve_language(language, default_language)
     async with httpx.AsyncClient(timeout=600) as client:
         response = await client.post(
@@ -91,8 +126,8 @@ async def transcribe(
             files={
                 "file": (
                     upload_filename,
-                    content,
-                    file.content_type or "application/octet-stream",
+                    upload_content,
+                    upload_content_type,
                 )
             },
         )

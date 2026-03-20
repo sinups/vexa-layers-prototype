@@ -1,10 +1,16 @@
 import os
+import struct
 import unittest
 
 os.environ.setdefault("OPENAI_API_KEY", "test-openai-key")
 os.environ.setdefault("TRANSCRIBER_PROXY_KEY", "test-proxy-key")
 
-from proxy import build_upload_filename, format_upstream_error, resolve_language
+from proxy import (
+    build_upload_filename,
+    format_upstream_error,
+    normalize_audio_upload,
+    resolve_language,
+)
 
 
 class BuildUploadFilenameTests(unittest.TestCase):
@@ -44,6 +50,36 @@ class ResolveLanguageTests(unittest.TestCase):
 
     def test_returns_none_when_language_not_set(self) -> None:
         self.assertIsNone(resolve_language(None, None))
+
+
+class NormalizeAudioUploadTests(unittest.TestCase):
+    def test_converts_float32_chunks_to_wav(self) -> None:
+        raw = b"".join(
+            struct.pack("<f", sample)
+            for sample in (0.0, 0.5, -0.5, 1.0, -1.0)
+        )
+
+        filename, content, content_type = normalize_audio_upload(
+            "chunk.f32",
+            "application/octet-stream",
+            raw,
+        )
+
+        self.assertEqual(filename, "chunk.wav")
+        self.assertEqual(content_type, "audio/wav")
+        self.assertTrue(content.startswith(b"RIFF"))
+        self.assertIn(b"WAVE", content[:16])
+
+    def test_keeps_regular_audio_file_unchanged(self) -> None:
+        filename, content, content_type = normalize_audio_upload(
+            "meeting.webm",
+            "audio/webm",
+            b"fake-audio",
+        )
+
+        self.assertEqual(filename, "meeting.webm")
+        self.assertEqual(content_type, "audio/webm")
+        self.assertEqual(content, b"fake-audio")
 
 
 if __name__ == "__main__":
