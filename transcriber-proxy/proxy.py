@@ -5,7 +5,9 @@ from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 
 app = FastAPI()
-backend_url = os.environ["BACKEND_URL"]
+openai_base_url = os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/")
+openai_api_key = os.environ["OPENAI_API_KEY"]
+openai_model = os.environ.get("OPENAI_TRANSCRIBE_MODEL", "gpt-4o-transcribe")
 api_key = os.environ["TRANSCRIBER_PROXY_KEY"]
 
 
@@ -31,16 +33,14 @@ async def transcribe(
     content = await file.read()
     async with httpx.AsyncClient(timeout=600) as client:
         response = await client.post(
-            backend_url,
-            params={
-                "task": "transcribe",
-                "language": language,
-                "output": "json",
-                "encode": "true",
-                "vad_filter": "true",
+            f"{openai_base_url}/audio/transcriptions",
+            headers={"Authorization": f"Bearer {openai_api_key}"},
+            data={
+                "model": openai_model,
+                **({"language": language} if language else {}),
             },
             files={
-                "audio_file": (
+                "file": (
                     file.filename,
                     content,
                     file.content_type or "application/octet-stream",
@@ -50,4 +50,4 @@ async def transcribe(
     response.raise_for_status()
     payload = response.json()
     text = payload.get("text", "")
-    return JSONResponse({"text": text, "model": model})
+    return JSONResponse({"text": text, "model": openai_model or model})

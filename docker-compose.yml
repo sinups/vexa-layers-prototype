@@ -21,23 +21,16 @@ services:
     volumes:
       - vexa-postgres:/var/lib/postgresql/data
 
-  whisper:
-    image: onerahmet/openai-whisper-asr-webservice:latest
-    restart: unless-stopped
-    environment:
-      ASR_MODEL: medium
-      ASR_ENGINE: faster_whisper
-
   transcriber-proxy:
     build:
       context: ./transcriber-proxy
       dockerfile: Dockerfile
     restart: unless-stopped
     environment:
-      BACKEND_URL: http://whisper:9000/asr
       TRANSCRIBER_PROXY_KEY: ${TRANSCRIBER_PROXY_KEY:-dev-transcriber-proxy-key}
-    depends_on:
-      - whisper
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
+      OPENAI_TRANSCRIBE_MODEL: ${OPENAI_TRANSCRIBE_MODEL:-gpt-4o-transcribe}
 
   vexa:
     image: vexaai/vexa-lite:latest
