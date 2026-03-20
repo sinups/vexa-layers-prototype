@@ -1,26 +1,25 @@
 # Layers Summarize
 
-Self-hosted meeting transcription via [Vexa](https://github.com/Vexa-ai/vexa) + [Vexa-Dashboard](https://github.com/Vexa-ai/Vexa-Dashboard) with OpenAI transcription.
+Self-hosted meeting transcription: [Vexa](https://github.com/Vexa-ai/vexa) + [Vexa-Dashboard](https://github.com/Vexa-ai/Vexa-Dashboard) + OpenAI transcription.
 
-## Architecture
+## Services
 
-- **dashboard** — official Vexa-Dashboard (Next.js), full meeting management UI
-- **vexa** — `vexaai/vexa-lite:latest`, bot orchestration + API
+- **nginx** — reverse proxy, routes `/` → dashboard, `/ws` → vexa (WebSocket)
+- **dashboard** — official Vexa-Dashboard (Next.js)
+- **vexa** — `vexaai/vexa-lite`, bot orchestration + API
 - **postgres** — database
-- **transcriber-proxy** — converts Vexa audio and proxies to OpenAI STT
+- **transcriber-proxy** — OpenAI STT proxy (handles audio format conversion)
 
 ## Setup
 
-1. Copy `.env.example` to `.env`, fill secrets
-2. Start:
-
 ```bash
-git submodule update --init --recursive
+cp .env.example .env
+# fill secrets
 docker compose up --build
 ```
 
-Dashboard: `http://localhost:3001`
+Open `http://localhost` (or your domain).
 
 ## Deployment
 
-Git-backed Docker Compose via Coolify at `vexa.iron.md`.
+Docker Compose via Coolify → `vexa.iron.md`. Nginx is the entry point service.

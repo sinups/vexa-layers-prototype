@@ -1,6 +1,18 @@
 services:
   # ---------------------------------------------------------------
-  # Official Vexa-Dashboard (Next.js)
+  # Nginx — entry point, routes traffic
+  # ---------------------------------------------------------------
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - dashboard
+      - vexa
+
+  # ---------------------------------------------------------------
+  # Vexa-Dashboard (official Next.js UI)
   # ---------------------------------------------------------------
   dashboard:
     build:
@@ -11,13 +23,12 @@ services:
       VEXA_API_URL: http://vexa:8056
       VEXA_ADMIN_API_KEY: ${VEXA_ADMIN_API_TOKEN:-dev-vexa-admin-token}
       VEXA_ADMIN_API_URL: http://vexa:8056
-      NEXT_PUBLIC_APP_URL: ${APP_BASE_URL:-http://localhost:3001}
-      NEXT_PUBLIC_VEXA_WS_URL: ${VEXA_WS_URL:-ws://localhost:8056/ws}
+      NEXT_PUBLIC_APP_URL: ${APP_BASE_URL:-http://localhost:3000}
+      NEXT_PUBLIC_VEXA_WS_URL: ${VEXA_WS_URL:-ws://localhost/ws}
       JWT_SECRET: ${JWT_SECRET:-vexa-dev-jwt-secret}
       ALLOW_REGISTRATIONS: ${ALLOW_REGISTRATIONS:-true}
       DEFAULT_BOT_NAME: ${BOT_DISPLAY_NAME:-Layers Summarize}
-      # AI Assistant (optional)
-      AI_MODEL: ${AI_MODEL:-}
+      AI_MODEL: ${AI_MODEL:-openai/gpt-4o}
       AI_API_KEY: ${OPENAI_API_KEY:-}
       AI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
     depends_on:
