@@ -47,6 +47,8 @@ services:
       ADMIN_API_TOKEN: ${VEXA_ADMIN_API_TOKEN:-dev-vexa-admin-token}
       REMOTE_TRANSCRIBER_URL: http://transcriber-proxy:8000/v1/audio/transcriptions
       REMOTE_TRANSCRIBER_API_KEY: ${TRANSCRIBER_PROXY_KEY:-dev-transcriber-proxy-key}
+      TRANSCRIBER_URL: http://transcriber-proxy:8000/v1/audio/transcriptions
+      TRANSCRIBER_API_KEY: ${TRANSCRIBER_PROXY_KEY:-dev-transcriber-proxy-key}
       SKIP_TRANSCRIPTION_CHECK: "false"
       STORAGE_BACKEND: local
       LOCAL_STORAGE_DIR: /var/lib/vexa/recordings
