@@ -10,6 +10,7 @@ import httpx
 import markdown
 from fastapi import FastAPI, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 APP_BASE_URL = os.environ.get("APP_BASE_URL", "https://vexa.iron.md")
@@ -19,9 +20,12 @@ VEXA_ADMIN_API_TOKEN = os.environ.get("VEXA_ADMIN_API_TOKEN", VEXA_API_KEY)
 REQUEST_TIMEOUT_SECONDS = float(os.environ.get("REQUEST_TIMEOUT_SECONDS", "45"))
 PROTOTYPE_USER_EMAIL = os.environ.get("PROTOTYPE_USER_EMAIL", "summary@layers.md")
 PROTOTYPE_USER_NAME = os.environ.get("PROTOTYPE_USER_NAME", "Layers Prototype")
+BOT_DISPLAY_NAME = os.environ.get("BOT_DISPLAY_NAME", "Layers Summarize")
+BOT_AVATAR_URL = os.environ.get("BOT_AVATAR_URL", f"{APP_BASE_URL}/static/layers-logo.png")
 
 app = FastAPI(title="Vexa Layers Prototype")
 templates = Jinja2Templates(directory="templates")
+app.mount("/static", StaticFiles(directory="static"), name="static")
 _prototype_user_api_key: str | None = None
 _prototype_user_lock = asyncio.Lock()
 
@@ -166,6 +170,8 @@ async def create_capture(request: Request, meeting_url: str | None = Form(defaul
     payload.setdefault("recording_enabled", True)
     payload.setdefault("transcribe_enabled", True)
     payload.setdefault("transcription_tier", "realtime")
+    payload.setdefault("bot_name", BOT_DISPLAY_NAME)
+    payload.setdefault("default_avatar_url", BOT_AVATAR_URL)
     created = await vexa_request("POST", "/bots", payload)
     return JSONResponse(
         {
