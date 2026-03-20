@@ -4,7 +4,7 @@ import unittest
 os.environ.setdefault("OPENAI_API_KEY", "test-openai-key")
 os.environ.setdefault("TRANSCRIBER_PROXY_KEY", "test-proxy-key")
 
-from proxy import build_upload_filename, format_upstream_error
+from proxy import build_upload_filename, format_upstream_error, resolve_language
 
 
 class BuildUploadFilenameTests(unittest.TestCase):
@@ -33,6 +33,17 @@ class FormatUpstreamErrorTests(unittest.TestCase):
 
     def test_falls_back_to_raw_text(self) -> None:
         self.assertEqual(format_upstream_error("plain text"), "plain text")
+
+
+class ResolveLanguageTests(unittest.TestCase):
+    def test_prefers_explicit_language(self) -> None:
+        self.assertEqual(resolve_language("en", "ru"), "en")
+
+    def test_falls_back_to_default_language(self) -> None:
+        self.assertEqual(resolve_language(None, "ru"), "ru")
+
+    def test_returns_none_when_language_not_set(self) -> None:
+        self.assertIsNone(resolve_language(None, None))
 
 
 if __name__ == "__main__":

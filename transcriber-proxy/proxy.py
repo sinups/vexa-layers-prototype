@@ -9,6 +9,7 @@ app = FastAPI()
 openai_base_url = os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/")
 openai_api_key = os.environ["OPENAI_API_KEY"]
 openai_model = os.environ.get("OPENAI_TRANSCRIBE_MODEL", "gpt-4o-transcribe")
+default_language = os.environ.get("OPENAI_DEFAULT_LANGUAGE")
 api_key = os.environ["TRANSCRIBER_PROXY_KEY"]
 extension_by_content_type = {
     "audio/mp3": ".mp3",
@@ -54,6 +55,14 @@ def format_upstream_error(payload: object) -> str:
     return "OpenAI transcription request failed."
 
 
+def resolve_language(language: str | None, fallback_language: str | None) -> str | None:
+    candidate = (language or "").strip()
+    if candidate:
+        return candidate
+    fallback = (fallback_language or "").strip()
+    return fallback or None
+
+
 @app.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok"}
@@ -69,6 +78,7 @@ async def transcribe(
     check_auth(authorization)
     content = await file.read()
     upload_filename = build_upload_filename(file.filename, file.content_type)
+    request_language = resolve_language(language, default_language)
     async with httpx.AsyncClient(timeout=600) as client:
         response = await client.post(
             f"{openai_base_url}/audio/transcriptions",
@@ -76,7 +86,7 @@ async def transcribe(
             data={
                 "model": openai_model,
                 "response_format": "json",
-                **({"language": language} if language else {}),
+                **({"language": request_language} if request_language else {}),
             },
             files={
                 "file": (
