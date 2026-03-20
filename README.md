@@ -1,38 +1,25 @@
 # Layers Summarize
 
-Meeting capture + transcription + AI analysis prototype built on Vexa.
+Self-hosted meeting transcription via [Vexa](https://github.com/Vexa-ai/vexa) + [Vexa-Dashboard](https://github.com/Vexa-ai/Vexa-Dashboard) with OpenAI transcription.
 
-## What this stack includes
+## Architecture
 
-- `vexa` using `vexaai/vexa-lite:latest` — bot orchestration
-- `postgres` for Vexa state
-- `transcriber-proxy` — OpenAI-compatible `/v1/audio/transcriptions` endpoint (f32→wav conversion)
-- `web` — FastAPI app: capture UI, admin panel, transcript viewer, AI summary, knowledge graph
+- **dashboard** — official Vexa-Dashboard (Next.js), full meeting management UI
+- **vexa** — `vexaai/vexa-lite:latest`, bot orchestration + API
+- **postgres** — database
+- **transcriber-proxy** — converts Vexa audio and proxies to OpenAI STT
 
-## Features
+## Setup
 
-- **Capture**: send bot to Google Meet / Zoom / Teams
-- **Real-time transcript**: auto-polling with speaker colors, timestamps
-- **Admin panel**: list all sessions, view status
-- **AI Summary**: structured analysis (overview, topics, decisions, actions, participants)
-- **Knowledge Graph**: entity/relation extraction + D3.js visualization
-- **Layers integration**: send summary as a page to Layers API
-
-## Pages
-
-- `/` — capture page (send bot to meeting)
-- `/admin` — sessions list
-- `/admin/session/{platform}/{meeting_id}` — session detail (transcript, summary, graph, layers)
-
-## Local run
-
-1. Copy `.env.example` to `.env`
-2. Fill the secrets
-3. Start:
+1. Copy `.env.example` to `.env`, fill secrets
+2. Start:
 
 ```bash
+git submodule update --init --recursive
 docker compose up --build
 ```
+
+Dashboard: `http://localhost:3001`
 
 ## Deployment
 

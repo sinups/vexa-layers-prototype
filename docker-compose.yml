@@ -1,43 +1,31 @@
 services:
-  web:
+  # ---------------------------------------------------------------
+  # Official Vexa-Dashboard (Next.js)
+  # ---------------------------------------------------------------
+  dashboard:
     build:
-      context: .
+      context: ./dashboard
       dockerfile: Dockerfile
+    restart: unless-stopped
     environment:
-      APP_BASE_URL: ${APP_BASE_URL:-https://vexa.iron.md}
-      VEXA_API_BASE: http://vexa:8056
-      VEXA_API_KEY: ${VEXA_ADMIN_API_TOKEN:-dev-vexa-admin-token}
-      REQUEST_TIMEOUT_SECONDS: 45
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
-      OPENAI_CHAT_MODEL: ${OPENAI_CHAT_MODEL:-gpt-4o}
-      LAYERS_API_BASE: ${LAYERS_API_BASE:-https://api.layers.md}
-      LAYERS_USER_EMAIL: ${LAYERS_USER_EMAIL:-}
-      LAYERS_USER_PASSWORD: ${LAYERS_USER_PASSWORD:-}
+      VEXA_API_URL: http://vexa:8056
+      VEXA_ADMIN_API_KEY: ${VEXA_ADMIN_API_TOKEN:-dev-vexa-admin-token}
+      VEXA_ADMIN_API_URL: http://vexa:8056
+      NEXT_PUBLIC_APP_URL: ${APP_BASE_URL:-http://localhost:3001}
+      NEXT_PUBLIC_VEXA_WS_URL: ${VEXA_WS_URL:-ws://localhost:8056/ws}
+      JWT_SECRET: ${JWT_SECRET:-vexa-dev-jwt-secret}
+      ALLOW_REGISTRATIONS: ${ALLOW_REGISTRATIONS:-true}
+      DEFAULT_BOT_NAME: ${BOT_DISPLAY_NAME:-Layers Summarize}
+      # AI Assistant (optional)
+      AI_MODEL: ${AI_MODEL:-}
+      AI_API_KEY: ${OPENAI_API_KEY:-}
+      AI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
     depends_on:
       - vexa
 
-  postgres:
-    image: postgres:16-alpine
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: vexa
-      POSTGRES_USER: vexa
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev-vexa-postgres-password}
-    volumes:
-      - vexa-postgres:/var/lib/postgresql/data
-
-  transcriber-proxy:
-    build:
-      context: ./transcriber-proxy
-      dockerfile: Dockerfile
-    restart: unless-stopped
-    environment:
-      TRANSCRIBER_PROXY_KEY: ${TRANSCRIBER_PROXY_KEY:-dev-transcriber-proxy-key}
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
-      OPENAI_TRANSCRIBE_MODEL: ${OPENAI_TRANSCRIBE_MODEL:-gpt-4o-transcribe}
-
+  # ---------------------------------------------------------------
+  # Vexa API (bot orchestration + transcription)
+  # ---------------------------------------------------------------
   vexa:
     image: vexaai/vexa-lite:latest
     restart: unless-stopped
@@ -52,12 +40,41 @@ services:
       STORAGE_BACKEND: local
       LOCAL_STORAGE_DIR: /var/lib/vexa/recordings
       LOCAL_STORAGE_FSYNC: "true"
-      LOG_LEVEL: info
+      LOG_LEVEL: ${LOG_LEVEL:-info}
     depends_on:
       - postgres
       - transcriber-proxy
     volumes:
       - vexa-recordings:/var/lib/vexa/recordings
+
+  # ---------------------------------------------------------------
+  # PostgreSQL
+  # ---------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: vexa
+      POSTGRES_USER: vexa
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev-vexa-postgres-password}
+    volumes:
+      - vexa-postgres:/var/lib/postgresql/data
+
+  # ---------------------------------------------------------------
+  # Transcriber proxy (vexa audio → OpenAI STT)
+  # ---------------------------------------------------------------
+  transcriber-proxy:
+    build:
+      context: ./transcriber-proxy
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      TRANSCRIBER_PROXY_KEY: ${TRANSCRIBER_PROXY_KEY:-dev-transcriber-proxy-key}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
+      OPENAI_TRANSCRIBE_MODEL: ${OPENAI_TRANSCRIBE_MODEL:-gpt-4o-transcribe}
+      OPENAI_DEFAULT_LANGUAGE: ${OPENAI_DEFAULT_LANGUAGE:-ru}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
 
 volumes:
   vexa-postgres:
