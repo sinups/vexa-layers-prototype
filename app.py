@@ -88,6 +88,14 @@ def parse_meeting_link(url: str) -> dict[str, str]:
     )
 
 
+def is_existing_meeting_conflict(exc: HTTPException) -> bool:
+    return exc.status_code == 409 and "active or requested meeting already exists" in str(exc.detail).lower()
+
+
+def is_missing_meeting_error(exc: HTTPException) -> bool:
+    return exc.status_code == 404 and "no active meeting found" in str(exc.detail).lower()
+
+
 async def ensure_prototype_user_api_key() -> str:
     global _prototype_user_api_key
     if _prototype_user_api_key:
@@ -187,25 +195,53 @@ async def create_capture(request: Request, meeting_url: str | None = Form(defaul
     payload.setdefault("transcription_tier", "realtime")
     payload.setdefault("bot_name", BOT_DISPLAY_NAME)
     payload.setdefault("default_avatar_url", BOT_AVATAR_URL)
-    created = await vexa_request("POST", "/bots", payload)
-    if BOT_AVATAR_DATA_URI:
-        await vexa_request(
-            "PUT",
-            f"/bots/{payload['platform']}/{payload['native_meeting_id']}/avatar",
-            {"image_base64": BOT_AVATAR_DATA_URI},
+    reused = False
+    transcript = None
+    try:
+        created = await vexa_request("POST", "/bots", payload)
+    except HTTPException as exc:
+        if not is_existing_meeting_conflict(exc):
+            raise
+        reused = True
+        transcript = await vexa_request(
+            "GET",
+            f"/transcripts/{payload['platform']}/{payload['native_meeting_id']}",
         )
-    return JSONResponse(
-        {
-            "platform": payload["platform"],
-            "native_meeting_id": payload["native_meeting_id"],
-            "meeting_url": meeting_url,
-            "created": created,
+        created = {
+            "status": transcript.get("status", "requested"),
+            "message": "Reusing the existing bot capture for this meeting.",
         }
-    )
+    if BOT_AVATAR_DATA_URI:
+        try:
+            await vexa_request(
+                "PUT",
+                f"/bots/{payload['platform']}/{payload['native_meeting_id']}/avatar",
+                {"image_base64": BOT_AVATAR_DATA_URI},
+            )
+        except HTTPException:
+            pass
+    response_payload = {
+        "platform": payload["platform"],
+        "native_meeting_id": payload["native_meeting_id"],
+        "meeting_url": meeting_url,
+        "created": created,
+        "reused": reused,
+    }
+    if transcript is not None:
+        response_payload["transcript"] = transcript
+    return JSONResponse(response_payload)
 
 
 @app.get("/api/captures/{platform}/{native_meeting_id}")
 async def capture_status(platform: str, native_meeting_id: str):
-    transcript = await vexa_request("GET", f"/transcripts/{platform}/{native_meeting_id}")
+    try:
+        transcript = await vexa_request("GET", f"/transcripts/{platform}/{native_meeting_id}")
+    except HTTPException as exc:
+        if is_missing_meeting_error(exc):
+            raise HTTPException(
+                status_code=404,
+                detail="No capture found for this meeting yet. Send the bot to a real active meeting link first.",
+            )
+        raise
     rendered = transcript_to_html(transcript)
     return JSONResponse({"transcript": transcript, "transcript_html": rendered})
