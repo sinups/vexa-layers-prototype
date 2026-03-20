@@ -1,0 +1,91 @@
+name: Deploy to Coolify
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: coolify-deploy-main
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      COOLIFY_API_BASE: ${{ vars.COOLIFY_API_BASE }}
+      COOLIFY_API_TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
+      COOLIFY_APP_UUID: ${{ secrets.COOLIFY_APP_UUID }}
+    steps:
+      - name: Trigger deployment
+        id: trigger
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          API_BASE="${COOLIFY_API_BASE:-https://server.iron.md/api/v1}"
+          : "${COOLIFY_API_TOKEN:?COOLIFY_API_TOKEN is required}"
+          : "${COOLIFY_APP_UUID:?COOLIFY_APP_UUID is required}"
+
+          response="$(curl -fsS -X POST \
+            -H "Authorization: Bearer ${COOLIFY_API_TOKEN}" \
+            "${API_BASE}/deploy?uuid=${COOLIFY_APP_UUID}")"
+
+          echo "Trigger response: ${response}"
+
+          deployment_uuid="$(python3 - <<'PY' "${response}"
+import json
+import sys
+
+payload = json.loads(sys.argv[1])
+deployments = payload.get("deployments") or []
+if not deployments:
+    raise SystemExit("No deployment information returned by Coolify.")
+print(deployments[0]["deployment_uuid"])
+PY
+)"
+
+          echo "Deployment UUID: ${deployment_uuid}"
+          echo "deployment_uuid=${deployment_uuid}" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for deployment to finish
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          API_BASE="${COOLIFY_API_BASE:-https://server.iron.md/api/v1}"
+          deployment_uuid="${{ steps.trigger.outputs.deployment_uuid }}"
+
+          for attempt in $(seq 1 60); do
+            response="$(curl -fsS \
+              -H "Authorization: Bearer ${COOLIFY_API_TOKEN}" \
+              "${API_BASE}/deployments/${deployment_uuid}")"
+
+            status="$(python3 - <<'PY' "${response}"
+import json
+import sys
+
+payload = json.loads(sys.argv[1])
+print(payload.get("status", "unknown"))
+PY
+)"
+
+            echo "Attempt ${attempt}: ${status}"
+
+            if [ "${status}" = "finished" ]; then
+              exit 0
+            fi
+
+            if [ "${status}" = "failed" ] || [ "${status}" = "canceled" ]; then
+              echo "${response}"
+              exit 1
+            fi
+
+            sleep 5
+          done
+
+          echo "Timed out waiting for deployment ${deployment_uuid}"
+          exit 1
