@@ -14,6 +14,8 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+from analysis import generate_summary, extract_graph
+
 APP_BASE_URL = os.environ.get("APP_BASE_URL", "https://vexa.iron.md")
 VEXA_API_BASE = os.environ.get("VEXA_API_BASE", "http://vexa:8056").rstrip("/")
 VEXA_API_KEY = os.environ.get("VEXA_API_KEY", "")
@@ -24,8 +26,11 @@ PROTOTYPE_USER_NAME = os.environ.get("PROTOTYPE_USER_NAME", "Layers Prototype")
 BOT_DISPLAY_NAME = os.environ.get("BOT_DISPLAY_NAME", "Layers Summarize")
 BOT_AVATAR_URL = os.environ.get("BOT_AVATAR_URL", f"{APP_BASE_URL}/static/layers-logo.png")
 BOT_AVATAR_PATH = Path(os.environ.get("BOT_AVATAR_PATH", "static/layers-logo.png"))
+LAYERS_API_BASE = os.environ.get("LAYERS_API_BASE", "https://api.layers.md")
+LAYERS_USER_EMAIL = os.environ.get("LAYERS_USER_EMAIL", "")
+LAYERS_USER_PASSWORD = os.environ.get("LAYERS_USER_PASSWORD", "")
 
-app = FastAPI(title="Vexa Layers Prototype")
+app = FastAPI(title="Layers Summarize")
 templates = Jinja2Templates(directory="templates")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 _prototype_user_api_key: str | None = None
@@ -43,6 +48,10 @@ def load_bot_avatar_data_uri() -> str | None:
 
 BOT_AVATAR_DATA_URI = load_bot_avatar_data_uri()
 
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
 
 def parse_meeting_link(url: str) -> dict[str, str]:
     parsed = urlparse(url.strip())
@@ -94,6 +103,10 @@ def is_existing_meeting_conflict(exc: HTTPException) -> bool:
 def is_missing_meeting_error(exc: HTTPException) -> bool:
     return exc.status_code == 404 and "no active meeting found" in str(exc.detail).lower()
 
+
+# ---------------------------------------------------------------------------
+# Vexa API helpers
+# ---------------------------------------------------------------------------
 
 async def ensure_prototype_user_api_key() -> str:
     global _prototype_user_api_key
@@ -164,6 +177,10 @@ def normalize_segments(payload: dict[str, Any]) -> list[dict[str, Any]]:
     return result
 
 
+# ---------------------------------------------------------------------------
+# Pages
+# ---------------------------------------------------------------------------
+
 @app.get("/health")
 async def health():
     return {"status": "ok"}
@@ -171,15 +188,31 @@ async def health():
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
-    return templates.TemplateResponse(
-        request,
-        "index.html",
-        {
-            "app_base_url": APP_BASE_URL,
-            "default_link": "https://meet.google.com/abc-defg-hij",
-        },
-    )
+    return templates.TemplateResponse(request, "index.html", {
+        "app_base_url": APP_BASE_URL,
+        "default_link": "https://meet.google.com/abc-defg-hij",
+    })
 
+
+@app.get("/admin", response_class=HTMLResponse)
+async def admin_page(request: Request):
+    return templates.TemplateResponse(request, "admin.html", {
+        "app_base_url": APP_BASE_URL,
+    })
+
+
+@app.get("/admin/session/{platform}/{native_meeting_id}", response_class=HTMLResponse)
+async def session_page(request: Request, platform: str, native_meeting_id: str):
+    return templates.TemplateResponse(request, "session.html", {
+        "platform": platform,
+        "native_meeting_id": native_meeting_id,
+        "app_base_url": APP_BASE_URL,
+    })
+
+
+# ---------------------------------------------------------------------------
+# Capture API (existing)
+# ---------------------------------------------------------------------------
 
 @app.post("/api/captures")
 async def create_capture(request: Request, meeting_url: str | None = Form(default=None)):
@@ -248,3 +281,251 @@ async def capture_status(platform: str, native_meeting_id: str):
         "segments": segments,
         "status": transcript.get("status"),
     })
+
+
+# ---------------------------------------------------------------------------
+# Sessions API (admin)
+# ---------------------------------------------------------------------------
+
+@app.get("/api/sessions")
+async def list_sessions():
+    """List all meetings from Vexa."""
+    try:
+        meetings = await vexa_request("GET", "/meetings")
+    except HTTPException:
+        meetings = []
+    # Vexa may return a list directly or wrapped in an object
+    if isinstance(meetings, dict):
+        meetings = meetings.get("meetings") or meetings.get("data") or []
+    return JSONResponse({"sessions": meetings})
+
+
+@app.get("/api/sessions/{platform}/{native_meeting_id}")
+async def get_session(platform: str, native_meeting_id: str):
+    """Get full session data including transcript."""
+    try:
+        transcript = await vexa_request("GET", f"/transcripts/{platform}/{native_meeting_id}")
+    except HTTPException as exc:
+        if is_missing_meeting_error(exc):
+            raise HTTPException(status_code=404, detail="Session not found.")
+        raise
+    segments = normalize_segments(transcript)
+    return JSONResponse({
+        "platform": platform,
+        "native_meeting_id": native_meeting_id,
+        "transcript": transcript,
+        "segments": segments,
+        "status": transcript.get("status"),
+    })
+
+
+@app.post("/api/sessions/{platform}/{native_meeting_id}/summary")
+async def session_summary(platform: str, native_meeting_id: str):
+    """Generate AI summary for a session."""
+    try:
+        transcript = await vexa_request("GET", f"/transcripts/{platform}/{native_meeting_id}")
+    except HTTPException as exc:
+        if is_missing_meeting_error(exc):
+            raise HTTPException(status_code=404, detail="Session not found.")
+        raise
+    segments = normalize_segments(transcript)
+    if not segments:
+        raise HTTPException(status_code=400, detail="No transcript segments to summarize.")
+    try:
+        summary = await generate_summary(segments)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Summary generation failed: {exc}")
+    return JSONResponse({"summary": summary})
+
+
+@app.post("/api/sessions/{platform}/{native_meeting_id}/graph")
+async def session_graph(platform: str, native_meeting_id: str):
+    """Extract knowledge graph for a session."""
+    try:
+        transcript = await vexa_request("GET", f"/transcripts/{platform}/{native_meeting_id}")
+    except HTTPException as exc:
+        if is_missing_meeting_error(exc):
+            raise HTTPException(status_code=404, detail="Session not found.")
+        raise
+    segments = normalize_segments(transcript)
+    if not segments:
+        raise HTTPException(status_code=400, detail="No transcript segments for graph extraction.")
+    try:
+        graph = await extract_graph(segments)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Graph extraction failed: {exc}")
+    return JSONResponse({"graph": graph})
+
+
+# ---------------------------------------------------------------------------
+# Layers API client
+# ---------------------------------------------------------------------------
+
+_layers_token: str | None = None
+_layers_token_lock = asyncio.Lock()
+
+
+async def layers_login() -> str:
+    """Login to Layers API and return JWT token."""
+    global _layers_token
+    async with _layers_token_lock:
+        if _layers_token:
+            return _layers_token
+        if not LAYERS_USER_EMAIL or not LAYERS_USER_PASSWORD:
+            raise HTTPException(status_code=501, detail="Layers credentials not configured.")
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(
+                f"{LAYERS_API_BASE.rstrip('/')}/v1/login",
+                json={"email": LAYERS_USER_EMAIL, "password": LAYERS_USER_PASSWORD},
+            )
+        if resp.is_error:
+            raise HTTPException(status_code=502, detail=f"Layers login failed: {resp.text[:500]}")
+        data = resp.json()
+        # Token may be in different fields depending on API version
+        _layers_token = data.get("token") or data.get("accessToken") or data.get("access_token")
+        if not _layers_token:
+            raise HTTPException(status_code=502, detail=f"Layers login: no token in response. Keys: {list(data.keys())}")
+        return _layers_token
+
+
+async def layers_request(method: str, path: str, json_body: dict[str, Any] | None = None) -> Any:
+    """Make authenticated request to Layers API. Retries once on 401."""
+    global _layers_token
+    token = await layers_login()
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    async with httpx.AsyncClient(timeout=60) as client:
+        resp = await client.request(method, f"{LAYERS_API_BASE.rstrip('/')}{path}", headers=headers, json=json_body)
+    # If 401, clear token and retry once
+    if resp.status_code == 401:
+        _layers_token = None
+        token = await layers_login()
+        headers["Authorization"] = f"Bearer {token}"
+        async with httpx.AsyncClient(timeout=60) as client:
+            resp = await client.request(method, f"{LAYERS_API_BASE.rstrip('/')}{path}", headers=headers, json=json_body)
+    if resp.is_error:
+        raise HTTPException(status_code=502, detail=f"Layers API error ({resp.status_code}): {resp.text[:500]}")
+    if not resp.content:
+        return {}
+    return resp.json()
+
+
+@app.get("/api/layers/workspaces")
+async def layers_workspaces():
+    """Get available Layers workspaces."""
+    data = await layers_request("GET", "/v1/workspaces")
+    return JSONResponse({"workspaces": data if isinstance(data, list) else data.get("workspaces", data.get("data", []))})
+
+
+@app.post("/api/sessions/{platform}/{native_meeting_id}/send-to-layers")
+async def send_to_layers(platform: str, native_meeting_id: str, request: Request):
+    """Send session summary to Layers as a page."""
+    # Get optional parentId/parentType from request body
+    body = {}
+    try:
+        body = await request.json()
+    except Exception:
+        pass
+    parent_id = body.get("parentId")
+    parent_type = body.get("parentType")
+
+    # Get transcript + summary
+    try:
+        transcript = await vexa_request("GET", f"/transcripts/{platform}/{native_meeting_id}")
+    except HTTPException as exc:
+        if is_missing_meeting_error(exc):
+            raise HTTPException(status_code=404, detail="Session not found.")
+        raise
+    segments = normalize_segments(transcript)
+    if not segments:
+        raise HTTPException(status_code=400, detail="No transcript to send.")
+
+    try:
+        summary = await generate_summary(segments)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Summary generation failed: {exc}")
+
+    # Build page content
+    page_title = f"Meeting Summary — {PLATFORM_NAMES.get(platform, platform)} / {native_meeting_id}"
+    page_body = _build_layers_page_content(summary, segments)
+
+    # Create page in Layers
+    create_payload: dict[str, Any] = {"title": page_title}
+    if parent_id:
+        create_payload["parentId"] = parent_id
+    if parent_type:
+        create_payload["parentType"] = parent_type
+
+    page = await layers_request("POST", "/v1/pages", create_payload)
+    page_id = page.get("id") or page.get("pageId")
+
+    result = {
+        "sent": True,
+        "page": page,
+        "page_id": page_id,
+        "title": page_title,
+        "content_preview": page_body[:500],
+        "summary": summary,
+    }
+
+    # Try to create tasks from action items
+    tasks_created = []
+    if summary.get("action_items"):
+        for item in summary["action_items"]:
+            try:
+                task_payload: dict[str, Any] = {"title": item.get("task", "Action item")}
+                if page_id:
+                    task_payload["parentId"] = page_id
+                    task_payload["parentType"] = "page"
+                task = await layers_request("POST", "/v1/project/task", task_payload)
+                tasks_created.append(task)
+            except Exception:
+                pass
+    result["tasks_created"] = tasks_created
+
+    return JSONResponse(result)
+
+
+PLATFORM_NAMES = {
+    "google_meet": "Google Meet",
+    "zoom": "Zoom",
+    "teams": "Microsoft Teams",
+}
+
+
+def _build_layers_page_content(summary: dict[str, Any], segments: list[dict[str, Any]]) -> str:
+    """Format summary + transcript as markdown for Layers."""
+    parts = []
+    parts.append(f"## Overview\n{summary.get('overview', '')}\n")
+
+    if summary.get("topics"):
+        parts.append("## Topics")
+        for t in summary["topics"]:
+            parts.append(f"### {t.get('title', '')}\n{t.get('summary', '')}\n")
+
+    if summary.get("decisions"):
+        parts.append("## Decisions")
+        for d in summary["decisions"]:
+            parts.append(f"- **{d.get('decision', '')}** — {d.get('context', '')}")
+        parts.append("")
+
+    if summary.get("action_items"):
+        parts.append("## Action Items")
+        for a in summary["action_items"]:
+            assignee = a.get("assignee") or "TBD"
+            deadline = a.get("deadline") or ""
+            dl = f" (by {deadline})" if deadline else ""
+            parts.append(f"- [ ] {a.get('task', '')} — @{assignee}{dl}")
+        parts.append("")
+
+    if summary.get("by_participant"):
+        parts.append("## By Participant")
+        for p in summary["by_participant"]:
+            points = ", ".join(p.get("key_points", []))
+            parts.append(f"- **{p.get('name', '')}** ({p.get('role_in_meeting', '')}): {points}")
+        parts.append("")
+
+    parts.append("## Full Transcript")
+    for seg in segments:
+        parts.append(f"**{seg['speaker']}:** {seg['text']}")
+
+    return "\n".join(parts)

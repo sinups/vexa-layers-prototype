@@ -8,6 +8,12 @@ services:
       VEXA_API_BASE: http://vexa:8056
       VEXA_API_KEY: ${VEXA_ADMIN_API_TOKEN:-dev-vexa-admin-token}
       REQUEST_TIMEOUT_SECONDS: 45
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
+      OPENAI_CHAT_MODEL: ${OPENAI_CHAT_MODEL:-gpt-4o}
+      LAYERS_API_BASE: ${LAYERS_API_BASE:-https://api.layers.md}
+      LAYERS_USER_EMAIL: ${LAYERS_USER_EMAIL:-}
+      LAYERS_USER_PASSWORD: ${LAYERS_USER_PASSWORD:-}
     depends_on:
       - vexa
 

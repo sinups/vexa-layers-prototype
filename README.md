@@ -1,20 +1,28 @@
-# Vexa Layers Prototype
+# Layers Summarize
 
-Minimal prototype for sending a bot into an external meeting from a simple web interface.
+Meeting capture + transcription + AI analysis prototype built on Vexa.
 
 ## What this stack includes
 
-- `vexa` using `vexaai/vexa-lite:latest`
+- `vexa` using `vexaai/vexa-lite:latest` — bot orchestration
 - `postgres` for Vexa state
-- `whisper` using `onerahmet/openai-whisper-asr-webservice`
-- `transcriber-proxy` exposing an OpenAI-compatible `/v1/audio/transcriptions` endpoint for Vexa
-- `web` FastAPI app for entering a meeting link and polling transcript output
+- `transcriber-proxy` — OpenAI-compatible `/v1/audio/transcriptions` endpoint (f32→wav conversion)
+- `web` — FastAPI app: capture UI, admin panel, transcript viewer, AI summary, knowledge graph
 
-## Supported links in the prototype
+## Features
 
-- Google Meet
-- Zoom (`/j/<id>` URLs)
-- Microsoft Teams (`/meet/<id>?p=...` URLs)
+- **Capture**: send bot to Google Meet / Zoom / Teams
+- **Real-time transcript**: auto-polling with speaker colors, timestamps
+- **Admin panel**: list all sessions, view status
+- **AI Summary**: structured analysis (overview, topics, decisions, actions, participants)
+- **Knowledge Graph**: entity/relation extraction + D3.js visualization
+- **Layers integration**: send summary as a page to Layers API
+
+## Pages
+
+- `/` — capture page (send bot to meeting)
+- `/admin` — sessions list
+- `/admin/session/{platform}/{meeting_id}` — session detail (transcript, summary, graph, layers)
 
 ## Local run
 
@@ -26,17 +34,6 @@ Minimal prototype for sending a bot into an external meeting from a simple web i
 docker compose up --build
 ```
 
-The UI runs on the `web` service and talks to Vexa internally.
+## Deployment
 
-## Intended deployment
-
-This repo is designed to be deployed as a git-backed Docker Compose application in Coolify.
-
-Recommended domain:
-
-- `vexa.iron.md`
-
-## Notes
-
-- This is intentionally a narrow prototype: join meeting, capture transcript, poll transcript.
-- Summary and Layers import come next, after bot join/transcript is stable.
+Git-backed Docker Compose via Coolify at `vexa.iron.md`.
