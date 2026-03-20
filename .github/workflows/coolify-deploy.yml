@@ -21,7 +21,6 @@ jobs:
       COOLIFY_APP_UUID: ${{ secrets.COOLIFY_APP_UUID }}
     steps:
       - name: Trigger deployment
-        id: trigger
         shell: bash
         run: |
           set -euo pipefail
@@ -35,40 +34,3 @@ jobs:
             "${API_BASE}/deploy?uuid=${COOLIFY_APP_UUID}")"
 
           echo "Trigger response: ${response}"
-
-          deployment_uuid="$(python3 -c 'import json,sys; payload=json.loads(sys.argv[1]); deployments=payload.get("deployments") or []; assert deployments, "No deployment information returned by Coolify."; print(deployments[0]["deployment_uuid"])' "${response}")"
-
-          echo "Deployment UUID: ${deployment_uuid}"
-          echo "deployment_uuid=${deployment_uuid}" >> "$GITHUB_OUTPUT"
-
-      - name: Wait for deployment to finish
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          API_BASE="${COOLIFY_API_BASE:-https://server.iron.md/api/v1}"
-          deployment_uuid="${{ steps.trigger.outputs.deployment_uuid }}"
-
-          for attempt in $(seq 1 60); do
-            response="$(curl -fsS \
-              -H "Authorization: Bearer ${COOLIFY_API_TOKEN}" \
-              "${API_BASE}/deployments/${deployment_uuid}")"
-
-            status="$(python3 -c 'import json,sys; payload=json.loads(sys.argv[1]); print(payload.get("status", "unknown"))' "${response}")"
-
-            echo "Attempt ${attempt}: ${status}"
-
-            if [ "${status}" = "finished" ]; then
-              exit 0
-            fi
-
-            if [ "${status}" = "failed" ] || [ "${status}" = "canceled" ]; then
-              echo "${response}"
-              exit 1
-            fi
-
-            sleep 5
-          done
-
-          echo "Timed out waiting for deployment ${deployment_uuid}"
-          exit 1
