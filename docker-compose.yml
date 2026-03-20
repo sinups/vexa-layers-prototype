@@ -6,7 +6,7 @@ services:
     environment:
       APP_BASE_URL: ${APP_BASE_URL:-https://vexa.iron.md}
       VEXA_API_BASE: http://vexa:8056
-      VEXA_API_KEY: ${VEXA_ADMIN_API_TOKEN}
+      VEXA_API_KEY: ${VEXA_ADMIN_API_TOKEN:-dev-vexa-admin-token}
       REQUEST_TIMEOUT_SECONDS: 45
     depends_on:
       - vexa
@@ -17,7 +17,7 @@ services:
     environment:
       POSTGRES_DB: vexa
       POSTGRES_USER: vexa
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev-vexa-postgres-password}
     volumes:
       - vexa-postgres:/var/lib/postgresql/data
 
@@ -34,7 +34,7 @@ services:
     working_dir: /srv
     environment:
       BACKEND_URL: http://whisper:9000/asr
-      TRANSCRIBER_PROXY_KEY: ${TRANSCRIBER_PROXY_KEY}
+      TRANSCRIBER_PROXY_KEY: ${TRANSCRIBER_PROXY_KEY:-dev-transcriber-proxy-key}
     command: >
       sh -lc "pip install --no-cache-dir fastapi uvicorn httpx python-multipart &&
       cat > /srv/proxy.py <<'PY'
@@ -90,10 +90,10 @@ services:
     image: vexaai/vexa-lite:latest
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql://vexa:${POSTGRES_PASSWORD}@postgres:5432/vexa
-      ADMIN_API_TOKEN: ${VEXA_ADMIN_API_TOKEN}
+      DATABASE_URL: postgresql://vexa:${POSTGRES_PASSWORD:-dev-vexa-postgres-password}@postgres:5432/vexa
+      ADMIN_API_TOKEN: ${VEXA_ADMIN_API_TOKEN:-dev-vexa-admin-token}
       REMOTE_TRANSCRIBER_URL: http://transcriber-proxy:8000/v1/audio/transcriptions
-      REMOTE_TRANSCRIBER_API_KEY: ${TRANSCRIBER_PROXY_KEY}
+      REMOTE_TRANSCRIBER_API_KEY: ${TRANSCRIBER_PROXY_KEY:-dev-transcriber-proxy-key}
       SKIP_TRANSCRIPTION_CHECK: "false"
       STORAGE_BACKEND: local
       LOCAL_STORAGE_DIR: /var/lib/vexa/recordings
