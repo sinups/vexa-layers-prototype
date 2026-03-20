@@ -3,8 +3,10 @@ from __future__ import annotations
 import os
 import re
 import asyncio
+import base64
 from typing import Any
 from urllib.parse import parse_qs, urlparse
+from pathlib import Path
 
 import httpx
 import markdown
@@ -22,12 +24,25 @@ PROTOTYPE_USER_EMAIL = os.environ.get("PROTOTYPE_USER_EMAIL", "summary@layers.md
 PROTOTYPE_USER_NAME = os.environ.get("PROTOTYPE_USER_NAME", "Layers Prototype")
 BOT_DISPLAY_NAME = os.environ.get("BOT_DISPLAY_NAME", "Layers Summarize")
 BOT_AVATAR_URL = os.environ.get("BOT_AVATAR_URL", f"{APP_BASE_URL}/static/layers-logo.png")
+BOT_AVATAR_PATH = Path(os.environ.get("BOT_AVATAR_PATH", "static/layers-logo.png"))
 
 app = FastAPI(title="Vexa Layers Prototype")
 templates = Jinja2Templates(directory="templates")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 _prototype_user_api_key: str | None = None
 _prototype_user_lock = asyncio.Lock()
+
+
+def load_bot_avatar_data_uri() -> str | None:
+    try:
+        raw = BOT_AVATAR_PATH.read_bytes()
+    except FileNotFoundError:
+        return None
+    encoded = base64.b64encode(raw).decode("ascii")
+    return f"data:image/png;base64,{encoded}"
+
+
+BOT_AVATAR_DATA_URI = load_bot_avatar_data_uri()
 
 
 def parse_meeting_link(url: str) -> dict[str, str]:
@@ -173,6 +188,12 @@ async def create_capture(request: Request, meeting_url: str | None = Form(defaul
     payload.setdefault("bot_name", BOT_DISPLAY_NAME)
     payload.setdefault("default_avatar_url", BOT_AVATAR_URL)
     created = await vexa_request("POST", "/bots", payload)
+    if BOT_AVATAR_DATA_URI:
+        await vexa_request(
+            "PUT",
+            f"/bots/{payload['platform']}/{payload['native_meeting_id']}/avatar",
+            {"image_base64": BOT_AVATAR_DATA_URI},
+        )
     return JSONResponse(
         {
             "platform": payload["platform"],
