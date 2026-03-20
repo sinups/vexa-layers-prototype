@@ -1,269 +1,660 @@
 <!doctype html>
-<html lang="en">
+<html lang="ru">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Vexa Layers Prototype</title>
+    <title>Layers Summarize</title>
     <style>
       :root {
         color-scheme: dark;
         --bg: #0d0f14;
         --panel: #171a22;
-        --panel-2: #202534;
+        --panel-2: #1e2230;
         --text: #f5f7fb;
-        --muted: #9ba3b4;
+        --muted: #8b95a8;
         --accent: #4f7cff;
         --accent-2: #6fe3c1;
         --danger: #ff7b7b;
-        --border: rgba(255,255,255,0.08);
+        --warning: #ffb347;
+        --border: rgba(255,255,255,0.07);
+        --radius: 16px;
       }
-      * { box-sizing: border-box; }
+      * { box-sizing: border-box; margin: 0; }
       body {
-        margin: 0;
-        font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        background: radial-gradient(circle at top, #1c2130 0%, var(--bg) 42%);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background: var(--bg);
         color: var(--text);
+        min-height: 100vh;
       }
-      main {
-        max-width: 1120px;
-        margin: 0 auto;
-        padding: 48px 24px 72px;
-      }
-      .hero {
+
+      /* Layout */
+      .app {
         display: grid;
-        grid-template-columns: 1.2fr 0.8fr;
-        gap: 24px;
-        margin-bottom: 24px;
-      }
-      .card {
-        background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
-        border: 1px solid var(--border);
-        border-radius: 24px;
-        padding: 24px;
-        backdrop-filter: blur(14px);
-        box-shadow: 0 24px 64px rgba(0,0,0,0.25);
-      }
-      h1, h2, h3 { margin: 0; }
-      h1 { font-size: 42px; line-height: 1.05; margin-bottom: 12px; }
-      p { color: var(--muted); line-height: 1.6; }
-      .label {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        border-radius: 999px;
-        background: rgba(79,124,255,0.12);
-        border: 1px solid rgba(79,124,255,0.2);
-        color: #a7c0ff;
-        padding: 8px 12px;
-        font-size: 14px;
-        margin-bottom: 16px;
-      }
-      form {
-        display: grid;
-        gap: 16px;
-      }
-      input, button {
-        border-radius: 16px;
-        border: 1px solid var(--border);
-        font: inherit;
-      }
-      input {
-        width: 100%;
-        padding: 16px 18px;
-        background: rgba(255,255,255,0.04);
-        color: var(--text);
-      }
-      button {
-        padding: 16px 18px;
-        background: linear-gradient(135deg, var(--accent), #7e5cff);
-        color: white;
-        font-weight: 600;
-        cursor: pointer;
-      }
-      button.secondary {
-        background: rgba(255,255,255,0.04);
-      }
-      .stack {
-        display: grid;
-        gap: 20px;
-      }
-      .row {
-        display: flex;
-        gap: 12px;
-        align-items: center;
-        flex-wrap: wrap;
-      }
-      .pill {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        border-radius: 999px;
-        padding: 8px 12px;
-        background: rgba(255,255,255,0.05);
-        color: var(--muted);
-        font-size: 14px;
-      }
-      .status {
-        min-height: 24px;
-        font-weight: 600;
-      }
-      .status.ok { color: var(--accent-2); }
-      .status.err { color: var(--danger); }
-      .grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 24px;
-      }
-      .result-panel {
-        min-height: 380px;
-      }
-      .result-panel h3 {
-        margin-bottom: 14px;
-        font-size: 20px;
-      }
-      .muted { color: var(--muted); }
-      #transcript {
-        border-radius: 16px;
-        border: 1px solid var(--border);
-        background: rgba(255,255,255,0.03);
-        padding: 20px;
-        min-height: 240px;
-        overflow: auto;
-      }
-      #transcript p { color: var(--text); }
-      ul.meta {
-        list-style: none;
-        padding: 0;
-        margin: 0;
-        display: grid;
-        gap: 10px;
-      }
-      ul.meta li {
-        padding: 14px 16px;
-        border-radius: 14px;
-        background: rgba(255,255,255,0.03);
-        border: 1px solid var(--border);
-      }
-      code {
-        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-        color: #c9d6ff;
+        grid-template-columns: 400px 1fr;
+        grid-template-rows: auto 1fr;
+        height: 100vh;
+        gap: 0;
       }
       @media (max-width: 900px) {
-        .hero, .grid { grid-template-columns: 1fr; }
+        .app { grid-template-columns: 1fr; grid-template-rows: auto auto 1fr; }
+      }
+
+      /* Header */
+      .header {
+        grid-column: 1 / -1;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 16px 24px;
+        border-bottom: 1px solid var(--border);
+        background: var(--panel);
+      }
+      .header h1 { font-size: 18px; font-weight: 600; }
+      .header .badge {
+        font-size: 11px;
+        padding: 3px 10px;
+        border-radius: 999px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      .badge-idle { background: rgba(139,149,168,0.15); color: var(--muted); }
+      .badge-connecting { background: rgba(255,179,71,0.15); color: var(--warning); }
+      .badge-recording { background: rgba(111,227,193,0.15); color: var(--accent-2); }
+      .badge-done { background: rgba(79,124,255,0.15); color: var(--accent); }
+      .badge-error { background: rgba(255,123,123,0.15); color: var(--danger); }
+
+      /* Sidebar */
+      .sidebar {
+        display: flex;
+        flex-direction: column;
+        border-right: 1px solid var(--border);
+        background: var(--panel);
+        overflow: hidden;
+      }
+      .sidebar-section {
+        padding: 20px;
+      }
+      .sidebar-section + .sidebar-section {
+        border-top: 1px solid var(--border);
+      }
+      .sidebar-section h2 {
+        font-size: 13px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--muted);
+        margin-bottom: 14px;
+      }
+
+      /* Form */
+      .input-group {
+        display: flex;
+        gap: 8px;
+      }
+      .input-group input {
+        flex: 1;
+        padding: 12px 14px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: rgba(255,255,255,0.04);
+        color: var(--text);
+        font: inherit;
+        font-size: 14px;
+        outline: none;
+        transition: border-color 0.15s;
+      }
+      .input-group input:focus {
+        border-color: var(--accent);
+      }
+      .btn {
+        padding: 12px 20px;
+        border-radius: 10px;
+        border: none;
+        font: inherit;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: opacity 0.15s;
+        white-space: nowrap;
+      }
+      .btn:disabled { opacity: 0.4; cursor: default; }
+      .btn-primary {
+        background: var(--accent);
+        color: white;
+      }
+      .btn-ghost {
+        background: rgba(255,255,255,0.06);
+        color: var(--muted);
+        border: 1px solid var(--border);
+      }
+
+      /* Meta info */
+      .meta-grid {
+        display: grid;
+        gap: 8px;
+      }
+      .meta-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 12px;
+        border-radius: 10px;
+        background: rgba(255,255,255,0.03);
+        font-size: 13px;
+      }
+      .meta-row .label { color: var(--muted); }
+      .meta-row .value { color: var(--text); font-weight: 500; font-family: ui-monospace, monospace; font-size: 12px; }
+
+      /* Participants */
+      .participants {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .participant-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 10px;
+        border-radius: 999px;
+        background: rgba(255,255,255,0.05);
+        font-size: 12px;
+        font-weight: 500;
+      }
+      .participant-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+
+      /* Transcript area */
+      .transcript-area {
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      .transcript-toolbar {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 24px;
+        border-bottom: 1px solid var(--border);
+        background: var(--panel);
+        font-size: 13px;
+      }
+      .transcript-toolbar .count {
+        color: var(--muted);
+      }
+      .transcript-toolbar .spacer { flex: 1; }
+      .auto-scroll-toggle {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        color: var(--muted);
+        font-size: 12px;
+        cursor: pointer;
+        user-select: none;
+      }
+      .auto-scroll-toggle input { accent-color: var(--accent); }
+
+      .transcript-scroll {
+        flex: 1;
+        overflow-y: auto;
+        padding: 16px 24px 32px;
+        scroll-behavior: smooth;
+      }
+      .transcript-scroll::-webkit-scrollbar { width: 6px; }
+      .transcript-scroll::-webkit-scrollbar-track { background: transparent; }
+      .transcript-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+
+      /* Empty state */
+      .empty-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        gap: 12px;
+        color: var(--muted);
+        text-align: center;
+        padding: 40px;
+      }
+      .empty-state svg { opacity: 0.3; }
+      .empty-state p { font-size: 14px; line-height: 1.5; max-width: 320px; }
+
+      /* Segment */
+      .segment {
+        display: flex;
+        gap: 12px;
+        padding: 8px 0;
+      }
+      .segment + .segment-new-speaker {
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px solid var(--border);
+      }
+      .segment-avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        font-weight: 700;
+        flex-shrink: 0;
+        color: white;
+      }
+      .segment-avatar.collapsed {
+        visibility: hidden;
+      }
+      .segment-body { flex: 1; min-width: 0; }
+      .segment-header {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        margin-bottom: 3px;
+      }
+      .segment-speaker {
+        font-size: 13px;
+        font-weight: 600;
+      }
+      .segment-time {
+        font-size: 11px;
+        color: var(--muted);
+        font-family: ui-monospace, monospace;
+      }
+      .segment-text {
+        font-size: 14px;
+        line-height: 1.55;
+        color: rgba(245,247,251,0.9);
+        word-break: break-word;
+      }
+
+      /* Pulsing dot for live */
+      @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.3; }
+      }
+      .live-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--accent-2);
+        animation: pulse 1.5s ease-in-out infinite;
+        display: inline-block;
+      }
+
+      /* Status message */
+      .status-msg {
+        padding: 10px 14px;
+        border-radius: 10px;
+        font-size: 13px;
+        margin-top: 12px;
+      }
+      .status-msg.ok { background: rgba(111,227,193,0.1); color: var(--accent-2); }
+      .status-msg.err { background: rgba(255,123,123,0.1); color: var(--danger); }
+      .status-msg.info { background: rgba(79,124,255,0.1); color: var(--accent); }
+
+      /* New segment animation */
+      @keyframes fadeSlideIn {
+        from { opacity: 0; transform: translateY(8px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .segment-enter {
+        animation: fadeSlideIn 0.25s ease-out;
       }
     </style>
   </head>
   <body>
-    <main>
-      <section class="hero">
-        <div class="card stack">
-          <div class="label">Prototype · Vexa + external transcription</div>
-          <div>
-            <h1>Send a bot into a meeting and pull the transcript back into your workspace.</h1>
-            <p>
-              Paste a Google Meet, Zoom, or Teams link. The prototype will parse the URL,
-              send a bot through Vexa, and poll the transcript endpoint so you can see what was captured.
-            </p>
-          </div>
+    <div class="app">
+      <!-- Header -->
+      <header class="header">
+        <h1>Layers Summarize</h1>
+        <span id="status-badge" class="badge badge-idle">Ожидание</span>
+        <div style="flex:1"></div>
+        <span id="segment-counter" style="font-size:12px;color:var(--muted)"></span>
+      </header>
+
+      <!-- Sidebar -->
+      <aside class="sidebar">
+        <div class="sidebar-section">
+          <h2>Подключение к встрече</h2>
           <form id="capture-form">
-            <label>
-              <span class="muted">Meeting link</span>
+            <div class="input-group">
               <input
                 id="meeting-url"
                 name="meeting_url"
                 type="url"
                 required
-                value="{{ default_link }}"
-                placeholder="https://meet.google.com/abc-defg-hij"
+                placeholder="https://meet.google.com/xxx-xxxx-xxx"
               />
-            </label>
-            <div class="row">
-              <button type="submit">Send bot</button>
-              <button id="poll-button" class="secondary" type="button" disabled>Refresh transcript</button>
+              <button type="submit" class="btn btn-primary" id="send-btn">Отправить</button>
             </div>
-            <div id="status" class="status"></div>
           </form>
+          <div id="status-msg"></div>
         </div>
-        <div class="card stack">
-          <h2>How this prototype works</h2>
-          <ul class="meta">
-            <li><strong>Capture:</strong> your link is parsed into the Vexa meeting format.</li>
-            <li><strong>Bot join:</strong> Vexa starts a bot and joins the meeting as a participant.</li>
-            <li><strong>Transcription:</strong> Vexa Lite streams audio into an OpenAI-compatible transcription endpoint.</li>
-            <li><strong>Next step:</strong> this transcript feed can later be pushed into Layers Pages and Tasks.</li>
-          </ul>
-        </div>
-      </section>
 
-      <section class="grid">
-        <div class="card result-panel">
-          <h3>Capture metadata</h3>
-          <div id="capture-meta" class="muted">No meeting has been sent yet.</div>
+        <div class="sidebar-section" id="meta-section" style="display:none">
+          <h2>Информация</h2>
+          <div id="capture-meta" class="meta-grid"></div>
         </div>
-        <div class="card result-panel">
-          <h3>Transcript preview</h3>
-          <div id="transcript"><p class="muted">Transcript will appear here once Vexa starts receiving segments.</p></div>
+
+        <div class="sidebar-section" id="participants-section" style="display:none">
+          <h2>Участники</h2>
+          <div id="participants" class="participants"></div>
         </div>
-      </section>
-    </main>
+
+        <div class="sidebar-section" style="margin-top:auto">
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-ghost" id="stop-btn" disabled style="flex:1">Остановить</button>
+            <button class="btn btn-ghost" id="export-btn" disabled style="flex:1">Экспорт</button>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Transcript -->
+      <div class="transcript-area">
+        <div class="transcript-toolbar">
+          <span class="count" id="toolbar-count">0 сегментов</span>
+          <span class="spacer"></span>
+          <label class="auto-scroll-toggle">
+            <input type="checkbox" id="auto-scroll" checked /> Автопрокрутка
+          </label>
+        </div>
+        <div class="transcript-scroll" id="transcript-scroll">
+          <div id="transcript-container">
+            <div class="empty-state" id="empty-state">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M12 18.5a6.5 6.5 0 0 0 6.5-6.5V8a6.5 6.5 0 0 0-13 0v4a6.5 6.5 0 0 0 6.5 6.5Z"/>
+                <path d="M12 18.5V22m-4 0h8"/>
+              </svg>
+              <p>Вставьте ссылку на встречу Google Meet, Zoom или Teams и нажмите «Отправить». Транскрипт появится здесь в реальном времени.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <script>
-      const form = document.getElementById('capture-form');
-      const statusEl = document.getElementById('status');
-      const metaEl = document.getElementById('capture-meta');
-      const transcriptEl = document.getElementById('transcript');
-      const pollButton = document.getElementById('poll-button');
-      let currentCapture = null;
+      const POLL_INTERVAL_MS = 3000;
+      const SPEAKER_COLORS = [
+        '#4f7cff','#6fe3c1','#ff7b7b','#ffb347','#c084fc',
+        '#f472b6','#22d3ee','#a3e635','#fb923c','#818cf8',
+      ];
 
-      function setStatus(text, kind = '') {
-        statusEl.textContent = text;
-        statusEl.className = `status ${kind}`.trim();
+      const form = document.getElementById('capture-form');
+      const statusMsg = document.getElementById('status-msg');
+      const metaSection = document.getElementById('meta-section');
+      const metaEl = document.getElementById('capture-meta');
+      const participantsSection = document.getElementById('participants-section');
+      const participantsEl = document.getElementById('participants');
+      const transcriptContainer = document.getElementById('transcript-container');
+      const transcriptScroll = document.getElementById('transcript-scroll');
+      const emptyState = document.getElementById('empty-state');
+      const statusBadge = document.getElementById('status-badge');
+      const segmentCounter = document.getElementById('segment-counter');
+      const toolbarCount = document.getElementById('toolbar-count');
+      const autoScrollCheck = document.getElementById('auto-scroll');
+      const sendBtn = document.getElementById('send-btn');
+      const stopBtn = document.getElementById('stop-btn');
+      const exportBtn = document.getElementById('export-btn');
+
+      let currentCapture = null;
+      let pollTimer = null;
+      let renderedCount = 0;
+      let allSegments = [];
+      const speakerColorMap = {};
+      let speakerIndex = 0;
+
+      function speakerColor(name) {
+        if (!speakerColorMap[name]) {
+          speakerColorMap[name] = SPEAKER_COLORS[speakerIndex % SPEAKER_COLORS.length];
+          speakerIndex++;
+        }
+        return speakerColorMap[name];
+      }
+
+      function initials(name) {
+        const parts = name.trim().split(/\s+/);
+        if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+        return name.slice(0, 2).toUpperCase();
+      }
+
+      function escapeHtml(str) {
+        const d = document.createElement('div');
+        d.textContent = str;
+        return d.innerHTML;
+      }
+
+      function formatTime(ts) {
+        if (!ts) return '';
+        try {
+          const d = new Date(ts);
+          if (isNaN(d.getTime())) return '';
+          return d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        } catch { return ''; }
+      }
+
+      function pluralSegments(n) {
+        const mod10 = n % 10, mod100 = n % 100;
+        if (mod10 === 1 && mod100 !== 11) return n + ' сегмент';
+        if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return n + ' сегмента';
+        return n + ' сегментов';
+      }
+
+      function setBadge(state, text) {
+        statusBadge.textContent = text;
+        statusBadge.className = 'badge badge-' + state;
+      }
+
+      function setStatus(text, kind) {
+        if (!text) { statusMsg.innerHTML = ''; return; }
+        statusMsg.innerHTML = '<div class="status-msg ' + kind + '">' + escapeHtml(text) + '</div>';
       }
 
       function renderMeta(data) {
-        const created = data.created || {};
-        metaEl.innerHTML = `
-          <ul class="meta">
-            <li><strong>Platform:</strong> <code>${data.platform}</code></li>
-            <li><strong>Meeting ID:</strong> <code>${data.native_meeting_id}</code></li>
-            <li><strong>Source link:</strong> <a href="${data.meeting_url}" target="_blank" rel="noreferrer">${data.meeting_url}</a></li>
-            <li><strong>Vexa response:</strong> <code>${JSON.stringify(created, null, 2)}</code></li>
-          </ul>
-        `;
+        const platformNames = { google_meet: 'Google Meet', zoom: 'Zoom', teams: 'Microsoft Teams' };
+        metaEl.innerHTML = [
+          { label: 'Платформа', value: platformNames[data.platform] || data.platform },
+          { label: 'Meeting ID', value: data.native_meeting_id },
+          { label: 'Статус', value: data.created?.status || '—' },
+        ].map(r =>
+          '<div class="meta-row"><span class="label">' + escapeHtml(r.label) +
+          '</span><span class="value">' + escapeHtml(String(r.value)) + '</span></div>'
+        ).join('');
+        metaSection.style.display = '';
       }
 
-      async function refreshTranscript() {
-        if (!currentCapture) return;
-        setStatus('Polling transcript…');
-        try {
-          const res = await fetch(`/api/captures/${currentCapture.platform}/${encodeURIComponent(currentCapture.native_meeting_id)}`);
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.detail || 'Failed to fetch transcript');
-          transcriptEl.innerHTML = data.transcript_html;
-          setStatus('Transcript updated.', 'ok');
-        } catch (err) {
-          setStatus(err.message, 'err');
+      function renderParticipants() {
+        const names = Object.keys(speakerColorMap);
+        if (names.length === 0) { participantsSection.style.display = 'none'; return; }
+        participantsSection.style.display = '';
+        participantsEl.innerHTML = names.map(name =>
+          '<span class="participant-chip"><span class="participant-dot" style="background:' +
+          speakerColor(name) + '"></span>' + escapeHtml(name) + '</span>'
+        ).join('');
+      }
+
+      function renderNewSegments(segments) {
+        if (segments.length <= renderedCount) return;
+
+        if (emptyState) emptyState.remove();
+
+        const fragment = document.createDocumentFragment();
+        for (let i = renderedCount; i < segments.length; i++) {
+          const seg = segments[i];
+          const prev = i > 0 ? segments[i - 1] : null;
+          const isNewSpeaker = !prev || prev.speaker !== seg.speaker;
+          const color = speakerColor(seg.speaker);
+
+          const el = document.createElement('div');
+          el.className = 'segment segment-enter' + (isNewSpeaker ? ' segment-new-speaker' : '');
+
+          const avatarClass = isNewSpeaker ? 'segment-avatar' : 'segment-avatar collapsed';
+          const headerHtml = isNewSpeaker
+            ? '<div class="segment-header"><span class="segment-speaker" style="color:' + color + '">' +
+              escapeHtml(seg.speaker) + '</span>' +
+              (seg.timestamp ? '<span class="segment-time">' + formatTime(seg.timestamp) + '</span>' : '') +
+              '</div>'
+            : '';
+
+          el.innerHTML =
+            '<div class="' + avatarClass + '" style="background:' + color + '">' +
+            (isNewSpeaker ? initials(seg.speaker) : '') + '</div>' +
+            '<div class="segment-body">' + headerHtml +
+            '<div class="segment-text">' + escapeHtml(seg.text) + '</div></div>';
+
+          fragment.appendChild(el);
+        }
+
+        transcriptContainer.appendChild(fragment);
+        renderedCount = segments.length;
+        allSegments = segments;
+
+        const label = pluralSegments(renderedCount);
+        toolbarCount.textContent = label;
+        segmentCounter.textContent = label;
+
+        renderParticipants();
+
+        if (autoScrollCheck.checked) {
+          transcriptScroll.scrollTop = transcriptScroll.scrollHeight;
         }
       }
 
-      pollButton.addEventListener('click', refreshTranscript);
-
-      form.addEventListener('submit', async (event) => {
-        event.preventDefault();
-        setStatus('Sending bot…');
-        transcriptEl.innerHTML = '<p class="muted">Waiting for transcript…</p>';
-        const formData = new FormData(form);
+      async function pollTranscript() {
+        if (!currentCapture) return;
         try {
-          const res = await fetch('/api/captures', { method: 'POST', body: formData });
+          const res = await fetch(
+            '/api/captures/' + encodeURIComponent(currentCapture.platform) +
+            '/' + encodeURIComponent(currentCapture.native_meeting_id)
+          );
           const data = await res.json();
-          if (!res.ok) throw new Error(data.detail || 'Failed to create capture');
+          if (!res.ok) throw new Error(data.detail || 'Ошибка загрузки');
+
+          const segments = data.segments || [];
+          renderNewSegments(segments);
+
+          const st = data.status || data.transcript?.status;
+          if (st === 'recording' || st === 'transcribing' || st === 'in_meeting') {
+            setBadge('recording', 'Запись');
+          } else if (st === 'requested' || st === 'joining') {
+            setBadge('connecting', 'Подключение');
+          } else if (st === 'done' || st === 'ended' || st === 'completed') {
+            setBadge('done', 'Завершено');
+            stopPolling();
+          } else if (st === 'error' || st === 'failed') {
+            setBadge('error', 'Ошибка');
+            stopPolling();
+          }
+        } catch (err) {
+          console.error('Poll error:', err);
+        }
+      }
+
+      function startPolling() {
+        stopPolling();
+        pollTimer = setInterval(pollTranscript, POLL_INTERVAL_MS);
+        pollTranscript();
+      }
+
+      function stopPolling() {
+        if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+      }
+
+      function resetUI() {
+        renderedCount = 0;
+        allSegments = [];
+        Object.keys(speakerColorMap).forEach(k => delete speakerColorMap[k]);
+        speakerIndex = 0;
+        transcriptContainer.innerHTML =
+          '<div class="empty-state" id="empty-state">' +
+          '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">' +
+          '<path d="M12 18.5a6.5 6.5 0 0 0 6.5-6.5V8a6.5 6.5 0 0 0-13 0v4a6.5 6.5 0 0 0 6.5 6.5Z"/>' +
+          '<path d="M12 18.5V22m-4 0h8"/></svg>' +
+          '<p>Вставьте ссылку на встречу и нажмите «Отправить».</p></div>';
+        metaSection.style.display = 'none';
+        participantsSection.style.display = 'none';
+        toolbarCount.textContent = '0 сегментов';
+        segmentCounter.textContent = '';
+        setBadge('idle', 'Ожидание');
+      }
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        stopPolling();
+
+        const url = document.getElementById('meeting-url').value.trim();
+        if (!url) return;
+
+        sendBtn.disabled = true;
+        setStatus('Отправка бота...', 'info');
+        setBadge('connecting', 'Подключение');
+
+        // Reset transcript only if new meeting
+        if (!currentCapture || currentCapture.meeting_url !== url) {
+          renderedCount = 0;
+          allSegments = [];
+          Object.keys(speakerColorMap).forEach(k => delete speakerColorMap[k]);
+          speakerIndex = 0;
+          transcriptContainer.innerHTML = '';
+        }
+
+        try {
+          const res = await fetch('/api/captures', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ meeting_url: url }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.detail || 'Ошибка');
+
           currentCapture = data;
           renderMeta(data);
-          pollButton.disabled = false;
-          setStatus('Bot requested successfully. Give it a few seconds, then refresh transcript.', 'ok');
+
+          // If reused and has transcript, render existing segments
+          if (data.transcript?.segments) {
+            const segments = (data.transcript.segments || []).map(s => ({
+              speaker: s.speaker || s.participant_name || 'Speaker',
+              text: (s.text || '').trim(),
+              timestamp: s.timestamp || s.start_time || s.created_at,
+            })).filter(s => s.text);
+            renderNewSegments(segments);
+          }
+
+          stopBtn.disabled = false;
+          exportBtn.disabled = false;
+          setStatus(data.reused ? 'Бот уже подключён к этой встрече.' : 'Бот отправлен. Ожидание транскрипции...', 'ok');
+          startPolling();
         } catch (err) {
           setStatus(err.message, 'err');
+          setBadge('error', 'Ошибка');
+        } finally {
+          sendBtn.disabled = false;
         }
+      });
+
+      stopBtn.addEventListener('click', () => {
+        stopPolling();
+        setBadge('done', 'Остановлено');
+        setStatus('Polling остановлен.', 'info');
+      });
+
+      exportBtn.addEventListener('click', () => {
+        if (allSegments.length === 0) return;
+        const lines = allSegments.map(s => {
+          const time = s.timestamp ? formatTime(s.timestamp) + ' ' : '';
+          return time + s.speaker + ': ' + s.text;
+        });
+        const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'transcript-' + (currentCapture?.native_meeting_id || 'export') + '.txt';
+        a.click();
+        URL.revokeObjectURL(a.href);
       });
     </script>
   </body>

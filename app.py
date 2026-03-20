@@ -9,7 +9,6 @@ from urllib.parse import parse_qs, urlparse
 from pathlib import Path
 
 import httpx
-import markdown
 from fastapi import FastAPI, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -149,20 +148,20 @@ async def vexa_request(method: str, path: str, json_body: dict[str, Any] | None 
     return response.json()
 
 
-def transcript_to_html(payload: dict[str, Any]) -> str:
+def normalize_segments(payload: dict[str, Any]) -> list[dict[str, Any]]:
     segments = payload.get("segments") or []
-    if not segments:
-        return "<p>No transcript segments yet.</p>"
-    lines = []
-    for segment in segments:
-        speaker = segment.get("speaker") or segment.get("participant_name") or "Speaker"
-        text = segment.get("text") or ""
-        if not text.strip():
+    result = []
+    for seg in segments:
+        speaker = seg.get("speaker") or seg.get("participant_name") or "Speaker"
+        text = (seg.get("text") or "").strip()
+        if not text:
             continue
-        lines.append(f"**{speaker}:** {text.strip()}")
-    if not lines:
-        return "<p>No transcript segments yet.</p>"
-    return markdown.markdown("\n\n".join(lines))
+        result.append({
+            "speaker": speaker,
+            "text": text,
+            "timestamp": seg.get("timestamp") or seg.get("start_time") or seg.get("created_at"),
+        })
+    return result
 
 
 @app.get("/health")
@@ -243,5 +242,9 @@ async def capture_status(platform: str, native_meeting_id: str):
                 detail="No capture found for this meeting yet. Send the bot to a real active meeting link first.",
             )
         raise
-    rendered = transcript_to_html(transcript)
-    return JSONResponse({"transcript": transcript, "transcript_html": rendered})
+    segments = normalize_segments(transcript)
+    return JSONResponse({
+        "transcript": transcript,
+        "segments": segments,
+        "status": transcript.get("status"),
+    })
