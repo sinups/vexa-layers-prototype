@@ -17,7 +17,7 @@ VEXA_API_BASE = os.environ.get("VEXA_API_BASE", "http://vexa:8056").rstrip("/")
 VEXA_API_KEY = os.environ.get("VEXA_API_KEY", "")
 VEXA_ADMIN_API_TOKEN = os.environ.get("VEXA_ADMIN_API_TOKEN", VEXA_API_KEY)
 REQUEST_TIMEOUT_SECONDS = float(os.environ.get("REQUEST_TIMEOUT_SECONDS", "45"))
-PROTOTYPE_USER_EMAIL = os.environ.get("PROTOTYPE_USER_EMAIL", "prototype@layers.local")
+PROTOTYPE_USER_EMAIL = os.environ.get("PROTOTYPE_USER_EMAIL", "summary@layers.md")
 PROTOTYPE_USER_NAME = os.environ.get("PROTOTYPE_USER_NAME", "Layers Prototype")
 
 app = FastAPI(title="Vexa Layers Prototype")
