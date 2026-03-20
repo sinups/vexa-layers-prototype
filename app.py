@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import re
+import asyncio
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
@@ -14,10 +15,15 @@ from fastapi.templating import Jinja2Templates
 APP_BASE_URL = os.environ.get("APP_BASE_URL", "https://vexa.iron.md")
 VEXA_API_BASE = os.environ.get("VEXA_API_BASE", "http://vexa:8056").rstrip("/")
 VEXA_API_KEY = os.environ.get("VEXA_API_KEY", "")
+VEXA_ADMIN_API_TOKEN = os.environ.get("VEXA_ADMIN_API_TOKEN", VEXA_API_KEY)
 REQUEST_TIMEOUT_SECONDS = float(os.environ.get("REQUEST_TIMEOUT_SECONDS", "45"))
+PROTOTYPE_USER_EMAIL = os.environ.get("PROTOTYPE_USER_EMAIL", "prototype@layers.local")
+PROTOTYPE_USER_NAME = os.environ.get("PROTOTYPE_USER_NAME", "Layers Prototype")
 
 app = FastAPI(title="Vexa Layers Prototype")
 templates = Jinja2Templates(directory="templates")
+_prototype_user_api_key: str | None = None
+_prototype_user_lock = asyncio.Lock()
 
 
 def parse_meeting_link(url: str) -> dict[str, str]:
@@ -63,8 +69,45 @@ def parse_meeting_link(url: str) -> dict[str, str]:
     )
 
 
+async def ensure_prototype_user_api_key() -> str:
+    global _prototype_user_api_key
+    if _prototype_user_api_key:
+        return _prototype_user_api_key
+
+    async with _prototype_user_lock:
+        if _prototype_user_api_key:
+            return _prototype_user_api_key
+
+        headers = {"X-Admin-API-Key": VEXA_ADMIN_API_TOKEN, "Content-Type": "application/json"}
+        async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT_SECONDS) as client:
+            user_response = await client.post(
+                f"{VEXA_API_BASE}/admin/users",
+                headers=headers,
+                json={
+                    "email": PROTOTYPE_USER_EMAIL,
+                    "name": PROTOTYPE_USER_NAME,
+                    "max_concurrent_bots": 5,
+                },
+            )
+            if user_response.status_code >= 400:
+                raise HTTPException(status_code=user_response.status_code, detail=user_response.text)
+            user = user_response.json()
+            user_id = user["id"]
+
+            token_response = await client.post(
+                f"{VEXA_API_BASE}/admin/users/{user_id}/tokens",
+                headers={"X-Admin-API-Key": VEXA_ADMIN_API_TOKEN},
+            )
+            if token_response.status_code >= 400:
+                raise HTTPException(status_code=token_response.status_code, detail=token_response.text)
+            token_payload = token_response.json()
+            _prototype_user_api_key = token_payload["token"]
+            return _prototype_user_api_key
+
+
 async def vexa_request(method: str, path: str, json_body: dict[str, Any] | None = None) -> Any:
-    headers = {"X-API-Key": VEXA_API_KEY}
+    api_key = await ensure_prototype_user_api_key()
+    headers = {"X-API-Key": api_key}
     async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT_SECONDS) as client:
         response = await client.request(
             method,
@@ -113,8 +156,16 @@ async def index(request: Request):
 
 
 @app.post("/api/captures")
-async def create_capture(meeting_url: str = Form(...)):
+async def create_capture(request: Request, meeting_url: str | None = Form(default=None)):
+    if meeting_url is None:
+        body = await request.json()
+        meeting_url = body.get("meeting_url")
+    if not meeting_url:
+        raise HTTPException(status_code=422, detail="meeting_url is required")
     payload = parse_meeting_link(meeting_url)
+    payload.setdefault("recording_enabled", True)
+    payload.setdefault("transcribe_enabled", True)
+    payload.setdefault("transcription_tier", "realtime")
     created = await vexa_request("POST", "/bots", payload)
     return JSONResponse(
         {
